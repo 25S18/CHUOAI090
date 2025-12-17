@@ -1,0 +1,108 @@
+body {
+    font-family: 'Arial', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #f4f4f9;
+    margin: 0;
+    padding: 20px;
+}
+
+.game-container {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    width: 450px;
+}
+
+h1 {
+    color: #333;
+    margin-bottom: 15px;
+}
+
+.controls {
+    margin-bottom: 15px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    align-items: center;
+}
+
+#speed, #startButton {
+    padding: 8px 12px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+#startButton {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    transition: background-color 0.3s;
+}
+
+#startButton:hover {
+    background-color: #45a049;
+}
+
+#score, #ngCount {
+    font-size: 1.2em;
+    margin-bottom: 10px;
+    color: #555;
+    font-weight: bold;
+}
+
+#gameCanvas {
+    background-color: #aad751; /* ゲームボードの色 */
+    border: 3px solid #333;
+    display: block;
+    margin: 0 auto;
+}
+
+.message {
+    margin-top: 15px;
+    padding: 10px;
+    background-color: #ffe0b2;
+    color: #e65100;
+    border: 1px solid #ffcc80;
+    border-radius: 5px;
+    font-weight: bold;
+}
+
+.hidden {
+    display: none;
+}
+
+.instructions {
+    text-align: left;
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+}
+
+.instructions h2 {
+    color: #333;
+    font-size: 1.3em;
+    margin-bottom: 10px;
+}
+
+.instructions ul {
+    list-style-type: none;
+    padding-left: 0;
+}
+
+.instructions li {
+    margin-bottom: 8px;
+    line-height: 1.5;
+}
+
+.instructions li ul {
+    margin-top: 5px;
+    padding-left: 20px;
+    list-style-type: disc;
+}
