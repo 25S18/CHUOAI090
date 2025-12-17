@@ -3,43 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>スネークゲーム</title>
+    <title>簡易フットボールゲーム</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="game-container">
-        <h1>🐍 スネークゲーム 🍎</h1>
+        <h1>⚽ 簡易フットボールゲーム 🥅</h1>
         
-        <div class="controls">
-            <label for="speed">速度選択:</label>
-            <select id="speed">
-                <option value="150">遅い</option>
-                <option value="100" selected>並み</option>
-                <option value="50">速い</option>
-            </select>
-            <button id="startButton">ゲーム開始 / 再開</button>
+        <div class="stats">
+            <div id="score">スコア: 0</div>
+            <div id="timer">時間: 60秒</div>
+        </div>
+        
+        <button id="startButton">ゲーム開始 / リセット</button>
+        
+        <div id="gameBoard">
+            <div id="leftGoal" class="goal"></div>
+            <div id="rightGoal" class="goal"></div>
+            
+            <div id="player" class="entity"></div>
+            <div id="ball" class="entity"></div>
         </div>
 
-        <div id="score">スコア: 0</div>
-        <div id="ngCount">NG回数: 0 / 10</div>
-        
-        <canvas id="gameCanvas" width="400" height="400"></canvas>
-        
-        <div id="message" class="hidden">ゲームを開始してください。</div>
+        <div id="message" class="hidden">「ゲーム開始」ボタンを押してください。</div>
 
         <div class="instructions">
             <h2>利用方法 (操作説明)</h2>
             <ul>
-                <li>**操作:** 左右上下の矢印キー ($\leftarrow$, $\rightarrow$, $\uparrow$, $\downarrow$) で蛇をコントロールします。</li>
-                <li>**目的:** 画面上の**餌 (赤い四角)** を食べると、蛇が長くなりスコアが増えます。</li>
-                <li>**NG条件:** <ul>
-                        <li>ゲームエリアの**壁**にぶつかる。</li>
-                        <li>**自分の体**にぶつかる。</li>
-                    </ul>
-                </li>
-                <li>**ゲーム終了:** NG回数が**10回**になるとゲームオーバーです。</li>
-                <li>**速度:** 「速度選択」で蛇の動く速さを選べます。</li>
-                <li>**開始/再開:** 「ゲーム開始 / 再開」ボタンを押してゲームを始めます。</li>
+                <li>**操作:** 左右上下の矢印キー ($\leftarrow$, $\rightarrow$, $\uparrow$, $\downarrow$) で**青いプレイヤー**をコントロールします。</li>
+                <li>**目的:** プレイヤーで**赤いボール**を押し、**右側の緑色のゴール**に入れるとスコアが1点増えます。</li>
+                <li>**時間:** 制限時間は**60秒**です。時間内にハイスコアを目指しましょう！</li>
+                <li>**開始/リセット:** 「ゲーム開始 / リセット」ボタンを押してゲームを始めます。</li>
             </ul>
         </div>
     </div>

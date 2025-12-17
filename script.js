@@ -1,217 +1,233 @@
 // ゲーム要素の取得
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+const board = document.getElementById('gameBoard');
+const playerElement = document.getElementById('player');
+const ballElement = document.getElementById('ball');
 const startButton = document.getElementById('startButton');
-const speedSelect = document.getElementById('speed');
 const scoreDisplay = document.getElementById('score');
-const ngCountDisplay = document.getElementById('ngCount');
+const timerDisplay = document.getElementById('timer');
 const messageDisplay = document.getElementById('message');
 
 // 定数
-const TILE_SIZE = 20; // 1タイルのサイズ
-const CANVAS_SIZE = canvas.width; // 400
-const MAX_NG = 10;
-const INITIAL_SPEED = 100; // 初期速度 (ms)
+const BOARD_WIDTH = 600;
+const BOARD_HEIGHT = 300;
+const PLAYER_SIZE = 30;
+const BALL_SIZE = 20;
+const MOVE_SPEED = 5; // プレイヤーの移動速度 (px)
+const MAX_TIME = 60; // 制限時間 (秒)
+const GOAL_WIDTH = 20;
 
 // ゲームの状態
-let snake;
-let food;
-let dx, dy; // 進行方向 (x, y)
-let score;
-let ngCount;
-let gameLoopInterval;
-let gameSpeed = INITIAL_SPEED;
-let isGameOver = true;
+let player = { x: 50, y: BOARD_HEIGHT / 2 - PLAYER_SIZE / 2 };
+let ball = { x: BOARD_WIDTH / 2 - BALL_SIZE / 2, y: BOARD_HEIGHT / 2 - BALL_SIZE / 2, vx: 0, vy: 0, friction: 0.98 };
+let score = 0;
+let timeLeft = MAX_TIME;
 let isGameRunning = false;
-let lastKeyPressed = { x: 1, y: 0 }; // 最後に押されたキーの方向
+let timerInterval;
+let keysPressed = {}; // 押されているキーの状態
 
 // ----------------------
-// 初期設定とリセット
+// 初期化とリセット
 // ----------------------
 
 function initGame() {
-    // 蛇の初期位置と長さ
-    snake = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
-    dx = 1; // 右向き
-    dy = 0;
+    // スコアとタイマーのリセット
     score = 0;
-    ngCount = 0;
+    timeLeft = MAX_TIME;
     scoreDisplay.textContent = `スコア: ${score}`;
-    ngCountDisplay.textContent = `NG回数: ${ngCount} / ${MAX_NG}`;
-    isGameOver = false;
-    isGameRunning = true;
-    lastKeyPressed = { x: 1, y: 0 }; 
-
-    // 餌の配置
-    placeFood();
+    timerDisplay.textContent = `時間: ${timeLeft}秒`;
     
-    // メッセージの更新
+    // プレイヤーとボールの位置リセット
+    player = { x: 50, y: BOARD_HEIGHT / 2 - PLAYER_SIZE / 2 };
+    ball = { x: BOARD_WIDTH / 2 - BALL_SIZE / 2, y: BOARD_HEIGHT / 2 - BALL_SIZE / 2, vx: 0, vy: 0, friction: 0.98 };
+    
+    // UI更新
     messageDisplay.classList.add('hidden');
-    
-    // 描画
-    drawGame();
+    startButton.textContent = 'リセット';
+    isGameRunning = true;
+    keysPressed = {};
 
-    // ゲームループの開始
-    clearInterval(gameLoopInterval);
-    gameSpeed = parseInt(speedSelect.value);
-    gameLoopInterval = setInterval(gameLoop, gameSpeed);
+    // ゲームループ開始
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(updateTimer, 1000);
+    
+    // 描画ループ開始
+    requestAnimationFrame(gameLoop);
 }
 
 // ----------------------
-// 描画関数
+// タイマー管理
 // ----------------------
 
-function drawTile(x, y, color) {
-    ctx.fillStyle = color;
-    ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-    ctx.strokeStyle = '#aad751';
-    ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-}
+function updateTimer() {
+    if (!isGameRunning) return;
 
-function drawSnake() {
-    // 蛇の頭
-    drawTile(snake[0].x, snake[0].y, '#388e3c'); // 濃い緑
-    
-    // 蛇の体
-    for (let i = 1; i < snake.length; i++) {
-        drawTile(snake[i].x, snake[i].y, '#66bb6a'); // 通常の緑
+    timeLeft--;
+    timerDisplay.textContent = `時間: ${timeLeft}秒`;
+
+    if (timeLeft <= 0) {
+        endGame();
     }
 }
 
-function drawFood() {
-    drawTile(food.x, food.y, 'red');
-}
-
-function drawGame() {
-    // キャンバスをクリア
-    ctx.fillStyle = '#aad751'; // 背景色
-    ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-
-    drawFood();
-    drawSnake();
+function endGame() {
+    isGameRunning = false;
+    clearInterval(timerInterval);
+    messageDisplay.textContent = `ゲーム終了！最終スコア: ${score}`;
+    messageDisplay.classList.remove('hidden');
+    startButton.textContent = '再スタート';
 }
 
 // ----------------------
-// ゲームロジック
+// ゲームループと描画
 // ----------------------
+
+function drawEntities() {
+    // プレイヤーの描画
+    playerElement.style.left = `${player.x}px`;
+    playerElement.style.top = `${player.y}px`;
+
+    // ボールの描画
+    ballElement.style.left = `${ball.x}px`;
+    ballElement.style.top = `${ball.y}px`;
+}
 
 function gameLoop() {
-    if (isGameOver) {
-        clearInterval(gameLoopInterval);
-        return;
-    }
+    if (!isGameRunning) return;
 
-    // 方向の適用
-    dx = lastKeyPressed.x;
-    dy = lastKeyPressed.y;
-
-    // 新しい頭の位置
-    const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+    // 1. プレイヤーの移動処理
+    movePlayer();
     
-    // 衝突判定
-    if (checkCollision(head)) {
-        handleNG();
-        return;
+    // 2. ボールの移動と摩擦
+    moveBall();
+
+    // 3. 衝突判定 (プレイヤーとボール)
+    checkCollisionPlayerBall();
+
+    // 4. 壁の反射判定 (ボール)
+    checkBallWallCollision();
+
+    // 5. ゴール判定
+    checkGoal();
+    
+    // 6. 描画更新
+    drawEntities();
+
+    // 次のフレームを要求
+    requestAnimationFrame(gameLoop);
+}
+
+// ----------------------
+// 移動と衝突判定
+// ----------------------
+
+function movePlayer() {
+    let nextX = player.x;
+    let nextY = player.y;
+
+    if (keysPressed['ArrowLeft'] || keysPressed['a']) nextX -= MOVE_SPEED;
+    if (keysPressed['ArrowRight'] || keysPressed['d']) nextX += MOVE_SPEED;
+    if (keysPressed['ArrowUp'] || keysPressed['w']) nextY -= MOVE_SPEED;
+    if (keysPressed['ArrowDown'] || keysPressed['s']) nextY += MOVE_SPEED;
+
+    // 壁との衝突（プレイヤー）
+    player.x = Math.max(0, Math.min(nextX, BOARD_WIDTH - PLAYER_SIZE));
+    player.y = Math.max(0, Math.min(nextY, BOARD_HEIGHT - PLAYER_SIZE));
+}
+
+function moveBall() {
+    ball.vx *= ball.friction;
+    ball.vy *= ball.friction;
+    
+    ball.x += ball.vx;
+    ball.y += ball.vy;
+
+    // 速度が非常に遅くなったら停止
+    if (Math.abs(ball.vx) < 0.1) ball.vx = 0;
+    if (Math.abs(ball.vy) < 0.1) ball.vy = 0;
+}
+
+
+function checkCollisionPlayerBall() {
+    const pCenter = { x: player.x + PLAYER_SIZE / 2, y: player.y + PLAYER_SIZE / 2 };
+    const bCenter = { x: ball.x + BALL_SIZE / 2, y: ball.y + BALL_SIZE / 2 };
+    
+    const dx = pCenter.x - bCenter.x;
+    const dy = pCenter.y - bCenter.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    const minDistance = PLAYER_SIZE / 2 + BALL_SIZE / 2; // 接触距離
+
+    if (distance < minDistance) {
+        // 衝突が発生した場合
+        
+        // 1. 重なりを解消 (単純化のため、プレイヤーから離す)
+        const overlap = minDistance - distance;
+        const angle = Math.atan2(dy, dx);
+        
+        // ボールを押し出す
+        ball.x -= Math.cos(angle) * overlap;
+        ball.y -= Math.sin(angle) * overlap;
+        
+        // 2. 速度を伝える (プレイヤーの移動方向と速さをボールに与える)
+        let pvX = 0;
+        let pvY = 0;
+        if (keysPressed['ArrowLeft'] || keysPressed['a']) pvX -= MOVE_SPEED;
+        if (keysPressed['ArrowRight'] || keysPressed['d']) pvX += MOVE_SPEED;
+        if (keysPressed['ArrowUp'] || keysPressed['w']) pvY -= MOVE_SPEED;
+        if (keysPressed['ArrowDown'] || keysPressed['s']) pvY += MOVE_SPEED;
+
+        // 速度をボールの速度として適用
+        const pushFactor = 0.5; // 押し出す力の調整
+        ball.vx = pvX * pushFactor;
+        ball.vy = pvY * pushFactor;
+    }
+}
+
+function checkBallWallCollision() {
+    // X軸の壁
+    if (ball.x < GOAL_WIDTH || ball.x > BOARD_WIDTH - BALL_SIZE - GOAL_WIDTH) {
+        // ゴールエリア内では反射させない (ゴール判定に任せる)
+    } else if (ball.x < 0 || ball.x > BOARD_WIDTH - BALL_SIZE) {
+        ball.vx *= -1; // 反転
+        ball.x = Math.max(0, Math.min(ball.x, BOARD_WIDTH - BALL_SIZE)); // 補正
     }
 
-    // 蛇の移動
-    snake.unshift(head); // 頭を追加
+    // Y軸の壁
+    if (ball.y < 0 || ball.y > BOARD_HEIGHT - BALL_SIZE) {
+        ball.vy *= -1; // 反転
+        ball.y = Math.max(0, Math.min(ball.y, BOARD_HEIGHT - BALL_SIZE)); // 補正
+    }
+}
 
-    // 餌を食べたか
-    if (head.x === food.x && head.y === food.y) {
+function checkGoal() {
+    // 右ゴール（得点エリア）
+    if (ball.x + BALL_SIZE >= BOARD_WIDTH - GOAL_WIDTH) {
         score++;
         scoreDisplay.textContent = `スコア: ${score}`;
-        placeFood(); // 新しい餌を配置
-    } else {
-        snake.pop(); // 餌を食べていない場合は、尾を削除
-    }
-
-    // 描画の更新
-    drawGame();
-}
-
-function checkCollision(head) {
-    const maxCoord = CANVAS_SIZE / TILE_SIZE - 1;
-
-    // 1. 壁との衝突
-    if (head.x < 0 || head.x > maxCoord || head.y < 0 || head.y > maxCoord) {
-        return true;
-    }
-
-    // 2. 自身との衝突
-    for (let i = 1; i < snake.length; i++) {
-        if (head.x === snake[i].x && head.y === snake[i].y) {
-            return true;
-        }
-    }
-    
-    return false;
-}
-
-function handleNG() {
-    ngCount++;
-    ngCountDisplay.textContent = `NG回数: ${ngCount} / ${MAX_NG}`;
-
-    if (ngCount >= MAX_NG) {
-        isGameOver = true;
-        messageDisplay.textContent = `ゲームオーバー！スコア: ${score}`;
-        messageDisplay.classList.remove('hidden');
-        clearInterval(gameLoopInterval);
-    } else {
-        // NGになったが、ゲームオーバーではない場合
-        messageDisplay.textContent = `壁にぶつかった！残りNG回数: ${MAX_NG - ngCount}`;
-        messageDisplay.classList.remove('hidden');
-
-        // 一時的にゲームを停止し、再開
-        clearInterval(gameLoopInterval);
-
-        // 衝突したため、元の位置に戻し、再スタート
-        isGameRunning = false;
         
-        // NG後のペナルティとして一時停止し、自動で再開
+        // ゴール後のリセット
+        messageDisplay.textContent = `GOAL! ${score}点目！`;
+        messageDisplay.classList.remove('hidden');
+        
         setTimeout(() => {
-            if (!isGameOver) {
-                // 蛇を初期位置に戻す
-                initGameAfterNG();
-            }
-        }, 1000); // 1秒停止
+            messageDisplay.classList.add('hidden');
+            // 中央にリセット
+            player.x = 50; 
+            player.y = BOARD_HEIGHT / 2 - PLAYER_SIZE / 2;
+            ball = { x: BOARD_WIDTH / 2 - BALL_SIZE / 2, y: BOARD_HEIGHT / 2 - BALL_SIZE / 2, vx: 0, vy: 0, friction: 0.98 };
+        }, 1000);
+        
+        return;
+    }
+    
+    // 左ゴール（相手がいないので、ペナルティはなし。壁として扱う）
+    if (ball.x <= GOAL_WIDTH) {
+        // ボールを押し戻す (壁としての反射)
+        ball.vx *= -1;
+        ball.x = GOAL_WIDTH;
     }
 }
 
-function initGameAfterNG() {
-    // 蛇の初期位置と方向リセット
-    snake = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
-    dx = 1; 
-    dy = 0;
-    lastKeyPressed = { x: 1, y: 0 }; 
-
-    // 描画
-    drawGame();
-
-    // メッセージの非表示
-    messageDisplay.classList.add('hidden');
-    
-    // ゲームループの再開
-    isGameRunning = true;
-    gameSpeed = parseInt(speedSelect.value);
-    gameLoopInterval = setInterval(gameLoop, gameSpeed);
-}
-
-function placeFood() {
-    const maxCoord = CANVAS_SIZE / TILE_SIZE - 1;
-    let newFood;
-    
-    do {
-        // ランダムな位置を生成
-        newFood = {
-            x: Math.floor(Math.random() * (maxCoord + 1)),
-            y: Math.floor(Math.random() * (maxCoord + 1))
-        };
-        // 蛇の体と同じ位置でないか確認
-    } while (snake.some(segment => segment.x === newFood.x && segment.y === newFood.y));
-
-    food = newFood;
-}
 
 // ----------------------
 // イベントハンドラ
@@ -219,61 +235,37 @@ function placeFood() {
 
 // キーボード操作
 document.addEventListener('keydown', (e) => {
-    if (isGameOver || !isGameRunning) return;
-
-    // 最後に押されたキーの方向を保存
-    // 180度反転を禁止
-    switch (e.key) {
-        case 'ArrowUp':
-        case 'w':
-            if (dy === 0) lastKeyPressed = { x: 0, y: -1 };
-            break;
-        case 'ArrowDown':
-        case 's':
-            if (dy === 0) lastKeyPressed = { x: 0, y: 1 };
-            break;
-        case 'ArrowLeft':
-        case 'a':
-            if (dx === 0) lastKeyPressed = { x: -1, y: 0 };
-            break;
-        case 'ArrowRight':
-        case 'd':
-            if (dx === 0) lastKeyPressed = { x: 1, y: 0 };
-            break;
+    if (!isGameRunning) return;
+    
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd'].includes(e.key)) {
+        keysPressed[e.key] = true;
+        e.preventDefault(); // スクロール防止
     }
 });
 
-// スタート/再開ボタン
+document.addEventListener('keyup', (e) => {
+    if (!isGameRunning) return;
+    
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd'].includes(e.key)) {
+        keysPressed[e.key] = false;
+    }
+});
+
+// スタート/リセットボタン
 startButton.addEventListener('click', () => {
     initGame();
-});
-
-// 速度変更
-speedSelect.addEventListener('change', (e) => {
-    gameSpeed = parseInt(e.target.value);
-    // ゲームが実行中の場合は、速度を即時反映させる
-    if (isGameRunning && !isGameOver) {
-        clearInterval(gameLoopInterval);
-        gameLoopInterval = setInterval(gameLoop, gameSpeed);
-    }
 });
 
 // ----------------------
 // 初期起動時の処理
 // ----------------------
 
-// 初期画面の描画
 function setupInitialScreen() {
-    ctx.fillStyle = '#aad751';
-    ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-    
-    ctx.fillStyle = '#333';
-    ctx.font = '20px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('「ゲーム開始」ボタンを押してください', CANVAS_SIZE / 2, CANVAS_SIZE / 2);
-
-    messageDisplay.textContent = 'ゲームを開始してください。';
+    // 要素を初期位置に配置
+    drawEntities();
+    messageDisplay.textContent = '「ゲーム開始」ボタンを押してください。';
     messageDisplay.classList.remove('hidden');
+    startButton.textContent = 'ゲーム開始';
 }
 
 setupInitialScreen();
